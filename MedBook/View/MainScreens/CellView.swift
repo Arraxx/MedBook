@@ -11,28 +11,19 @@ import CoreData
 struct CellView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @FetchRequest(
-            sortDescriptors: [NSSortDescriptor(keyPath: \CellData.title, ascending: true)],
-            animation: .default) var coreDataCellData: FetchedResults<CellData>
+        sortDescriptors: [NSSortDescriptor(keyPath: \CellData.title, ascending: true)],
+        animation: .default) var coreDataCellData: FetchedResults<CellData>
     @State var title: String
     @State var imageURL: String
     @State var author: String
     @State var ratings: String
     @State var notes: String
     @State var isBookmarked: Bool
-    
+    @State private var isPresentInCoreData = false
     var body: some View {
         RoundedRectangle(cornerRadius: 10)
             .frame(width: 350, height: 80)
             .foregroundStyle(Color.white)
-            .swipeActions {
-                Button {
-                    // Perform bookmark action
-                    isBookmarked.toggle()
-                } label: {
-                    Label(isBookmarked ? "Unbookmark" : "Bookmark", systemImage: isBookmarked ? "bookmark.fill" : "bookmark")
-                }
-                .tint(.yellow)
-            }
             .overlay(
                 HStack {
                     ImageView(imageUrl: self.imageURL)
@@ -47,6 +38,7 @@ struct CellView: View {
                                 .font(.footnote)
                                 .foregroundStyle(.gray)
                                 .multilineTextAlignment(.leading)
+                            Spacer(minLength: 1)
                             HStack(spacing: 5) {
                                 Image(systemName: "star.fill")
                                     .font(.footnote)
@@ -61,7 +53,6 @@ struct CellView: View {
                                 Text(notes)
                                     .font(.footnote)
                             }
-                            Spacer()
                         }
                     }
                     
@@ -74,16 +65,34 @@ struct CellView: View {
                             .padding()
                     }
                     .onChange(of: isBookmarked) { newValue in
-                        if newValue {
-                            AddFilesViewModel(viewContext: viewContext).addCellDataInCoreData(title: self.title, imageURL: self.imageURL, author: self.author, ratings: self.ratings, notes: self.notes)
+                        if newValue{
+                            if !isPresentInCoreData{
+                                AddFilesViewModel(viewContext: viewContext).addCellDataInCoreData(title: self.title, imageURL: self.imageURL, author: self.author, ratings: self.ratings, notes: self.notes)
+                            }
                         }
                         else{
-                            AddFilesViewModel(viewContext: viewContext).deleteCellDataFromCoreData(title: self.title, imageURL: self.imageURL, author: self.author, ratings: self.ratings, notes: self.notes)
+                                AddFilesViewModel(viewContext: viewContext).deleteCellDataFromCoreData(title: self.title, imageURL: self.imageURL, author: self.author, ratings: self.ratings, notes: self.notes)
                         }
                     }
-                    
                 }
             )
+            .task {
+                let titleToCheck = self.title
+                let fetchRequest: NSFetchRequest<CellData> = CellData.fetchRequest()
+                fetchRequest.predicate = NSPredicate(format: "title == %@", titleToCheck)
+                
+                do {
+                    let results = try viewContext.fetch(fetchRequest)
+                    
+                    if !results.isEmpty {
+                        // Title is present in Core Data
+                        self.isBookmarked = true
+                        self.isPresentInCoreData = true
+                    }
+                } catch {
+                    print("Error fetching cell data: \(error.localizedDescription)")
+                }
+            }
     }
 }
 
@@ -98,14 +107,21 @@ struct ImageView: View {
     }
     
     var body: some View {
-        Image(uiImage: downloadedImage ?? .github)
-            .resizable()
-            .frame(width: 70, height: 70)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .padding(.leading, 5)
-            .onAppear {
-                downloadImage()
+        Group {
+            if let image = downloadedImage {
+                Image(uiImage: image)
+                    .resizable()
+                    .frame(width: 70, height: 70)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(.leading, 5)
+            } else {
+                ProgressView()
+                    .frame(width: 70, height: 70)
+                    .padding(.leading, 5)
             }
+        } .onAppear {
+            downloadImage()
+        }
     }
     
     private func downloadImage() {

@@ -14,6 +14,7 @@ struct ContentView: View {
     var body: some View {
         if isLoggedIn && toLogoutAuth.isLoggedIn{
             BooksView()
+                .environment(\.managedObjectContext, viewContext)
                 .environmentObject(toLogoutAuth)
         }
         else {

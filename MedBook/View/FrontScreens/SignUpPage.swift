@@ -14,7 +14,6 @@ struct SignUpPage: View {
     @Binding var isLoggedIn: Bool
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.presentationMode) var presentationMode
-    //    @StateObject var countriesUserData = CountriesDataModel()
     @ObservedObject var countries : countryDataFetch = countryDataFetch()
     @ObservedObject var currentCountry : countryDataFetch = countryDataFetch()
     @State var isBookViewCalled : Bool = false
@@ -23,6 +22,14 @@ struct SignUpPage: View {
     @State private var selectedCountry : String = ""
     @State var emailId : String = ""
     @State var password : String = ""
+    @State private var isSecureTextEntry = true
+    @State private var showPasswordError = false
+    @State private var showEmailError = false
+    // password check
+    @State var checkForSize : Bool = false
+    @State var checkForCapital : Bool = false
+    @State var checkForSpecialChar : Bool = false
+    
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Item.countryName, ascending: true)],
         animation: .default) var coreDataCountries: FetchedResults<Item>
@@ -50,40 +57,90 @@ struct SignUpPage: View {
                     }
                     .padding()
                     
-                    .padding()
                     VStack{
                         VStack{
                             TextField("Email", text: $emailId)
                                 .autocorrectionDisabled(true)
+//                                .onChange(of: emailId){
+//                                    showEmailError = false
+//                                    showPasswordError = false
+//                                }
+                                .onTapGesture {
+                                    showEmailError = false
+                                    showPasswordError = false
+                                }
                             Divider()
                                 .background(.black)
+                            HStack{
+                                if(showEmailError) {
+                                    Text("Invalid Email ID.")
+                                        .foregroundStyle(.red)
+                                        .font(.footnote)
+                                }
+                                Spacer()
+                            }
                         }.padding()
                         VStack{
-                            SecureField("Password", text: $password)
-                                .autocorrectionDisabled(true)
+                            HStack{
+                                Group {
+                                    if isSecureTextEntry {
+                                        SecureField("Password", text: $password)
+                                            .textContentType(.password)
+                                    } else {
+                                        TextField("Password", text: $password)
+                                            .textContentType(.password)
+                                    }
+                                }
+                                .onChange(of: password) { value in
+//                                    showEmailError = false
+//                                    showPasswordError = false
+                                    checkForCapital = value.contains {$0.isUppercase}
+                                    if(value.count >= 8) { checkForSize = true } else { checkForSize = false }
+                                    checkForSpecialChar = value.contains { !($0.isLetter || $0.isNumber) }
+                                }
+                                .onTapGesture {
+                                    showEmailError = false
+                                    showPasswordError = false
+                                }
+                                
+                                Button(action: {
+                                    isSecureTextEntry.toggle()
+                                }) {
+                                    Image(systemName: isSecureTextEntry ? "eye" : "eye.slash")
+                                        .foregroundColor(.gray)
+                                }
+                            }
                             Divider()
                                 .background(.black)
+                            HStack{
+                                if(showPasswordError) {
+                                    Text("Invalid password.")
+                                        .foregroundStyle(.red)
+                                        .font(.footnote)
+                                }
+                                Spacer()
+                            }
                         }.padding()
                     }
                     .padding()
                     
                     VStack(spacing : 30){
                         HStack{
-                            Image(systemName: "square")
+                            Image(systemName: checkForSize ? "square.fill" : "square")
                             Text("At least 8 characters")
                                 .font(.subheadline)
                                 .fontWeight(/*@START_MENU_TOKEN@*/.bold/*@END_MENU_TOKEN@*/)
                             Spacer()
                         }
                         HStack{
-                            Image(systemName: "square")
+                            Image(systemName: checkForCapital ? "square.fill" : "square")
                             Text("At least 1 Uppercase Character ")
                                 .font(.subheadline)
                                 .fontWeight(/*@START_MENU_TOKEN@*/.bold/*@END_MENU_TOKEN@*/)
                             Spacer()
                         }
                         HStack{
-                            Image(systemName: "square")
+                            Image(systemName: checkForSpecialChar ? "square.fill" : "square")
                             Text("At least 1 Special Character")
                                 .font(.subheadline)
                                 .fontWeight(/*@START_MENU_TOKEN@*/.bold/*@END_MENU_TOKEN@*/)
@@ -102,7 +159,8 @@ struct SignUpPage: View {
                     Spacer()
                     
                     NavigationLink(destination: BooksView()
-                        .environment(\.managedObjectContext, viewContext), isActive: $isBookViewCalled, label: {
+                        .environment(\.managedObjectContext, viewContext)
+                        .environmentObject(checkLogoutAuth), isActive: $isBookViewCalled, label: {
                         Button(action: {
                             checkLogoutAuth.isLoggedIn = true
                             print("Going to Books Page")
@@ -112,10 +170,11 @@ struct SignUpPage: View {
                                 isBookViewCalled = true
                                 UserDefaults.standard.set(true, forKey: "isLoggedIn")
                             } else {
+                                showEmailError = true
+                                showPasswordError = true
                                 print("Incorrect Email/Password")
                                 emailId = ""
                                 password = ""
-                                showAlert = true
                             }
                         }){
                             Text("Let's Go")
@@ -129,13 +188,6 @@ struct SignUpPage: View {
                                 .stroke(Color.black, lineWidth: 2)
                                 .frame(width: 150, height: 50))
                         .padding(.bottom, 20)
-                        .alert(isPresented: $showAlert){
-                            Alert(title: Text("Invalid Credentials"),
-                                  dismissButton: .default(Text("Dismiss"), action: {
-                                showAlert = false
-                            })
-                            )
-                        }
                     })
                 }
             }

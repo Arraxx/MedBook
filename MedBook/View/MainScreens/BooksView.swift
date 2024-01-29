@@ -16,7 +16,10 @@ struct BooksView: View {
     @State var searchContext : String = ""
     @State var initialVal : Int = 10
     @State var sortButton : sortType = sortType.Average
-    @State private var reachedEnd = false
+    @State private var reachedEnd : Bool = false
+    @State private var isLoading : Bool = false
+    @State private var isLoadingBooks : Bool = false
+    @State var booksArray : Books = Books(docs: [])
     var body: some View {
         NavigationStack{
             ZStack{
@@ -39,9 +42,6 @@ struct BooksView: View {
                                             .foregroundColor(.black)
                                     }
                                     .padding(.trailing, 10)
-                                    .task {
-                                        searchContext = ""
-                                    }
                                 
                                 Button(action: {
                                     checkLogoutAuth.isLoggedIn = false
@@ -85,12 +85,18 @@ struct BooksView: View {
                             )
                             .onChange(of : searchContext) { newValue in
                                 if newValue.count >= 3 {
-                                    booksModel.fetchBookData(title: newValue){_ in }
+                                    isLoadingBooks = true
+                                    booksModel.fetchBookData(title: newValue){_ in
+                                        isLoadingBooks = false
+                                    }
+                                    
                                 } else {
                                     initialVal = 10
                                     booksModel.limit = 10
                                     booksModel.offset = 0
                                     booksModel.cellData.docs = []
+                                    isLoading = false
+                                    isLoadingBooks = false
                                 }
                             }
                     }
@@ -125,7 +131,7 @@ struct BooksView: View {
                             }
                             .padding([.leading,.trailing], 20)
                             
-                            VStack(spacing : 20){
+                            VStack(spacing : 20) {
                                 let sortedBooks = booksModel.cellData.docs.sorted { (book1, book2) -> Bool in
                                     if sortButton == sortType.Title {
                                         return book1.title ?? "" < book2.title ?? ""
@@ -147,12 +153,14 @@ struct BooksView: View {
                                                     .onAppear {
                                                         // Check if this is the last item in scrollview
                                                         if bookData == sortedBooks.last {
-                                                            
+                                                            isLoading = true
                                                             booksModel.fetchMoreResults(title: searchContext) {
+                                                                isLoading = false
                                                             }
                                                         }
                                                     }
                                             }
+                                            Spacer(minLength: 10)
                                         }
                                         .onReceive(booksModel.$cellData) { _ in
                                             DispatchQueue.main.async {
@@ -162,6 +170,13 @@ struct BooksView: View {
                                     }
                                 }
                             }
+                        }
+                        if isLoadingBooks {
+                            ProgressView()
+                                .padding(.bottom, 350)
+                        }
+                        if isLoading{
+                            ProgressView()
                         }
                     }
                     

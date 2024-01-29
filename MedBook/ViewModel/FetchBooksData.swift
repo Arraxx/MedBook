@@ -27,13 +27,12 @@ class FetchBooksData: ObservableObject {
             .map(\.data)
             .decode(type: Books.self, decoder: JSONDecoder())
             .sink(receiveCompletion: { completion in
-                // Handle completion if needed
             }, receiveValue: { decodedData in
                 completion(decodedData)
-                print(decodedData.docs)
-                DispatchQueue.main.async {
-                    self.cellData.docs.append(contentsOf: decodedData.docs.dropFirst(self.offset))
-                }
+                print(decodedData.docs.dropFirst(self.offset))
+                    DispatchQueue.main.async {
+                        self.cellData.docs.append(contentsOf: decodedData.docs.dropFirst(self.offset))
+                    }
             })
 
         dataTaskPublisher.store(in: &cancellables)
@@ -41,11 +40,11 @@ class FetchBooksData: ObservableObject {
 
     // Function to fetch more results by incrementing the offset and limit
     func fetchMoreResults(title: String, completion: @escaping () -> Void) {
-        offset += limit
+        offset = limit
         limit += 10
         fetchBookData(title: title) { _ in
-            completion()
-        }
+                    completion()
+            }
     }
 }
 

@@ -17,6 +17,9 @@ struct LogInPage: View {
     @State var isBookViewCalled : Bool = false
     @State var emailInCD : Bool = false
     @State var passwordInCD : Bool = false
+    @State var showEmailError : Bool = false
+    @State var showPasswordError : Bool = false
+    @State private var isSecureTextEntry = true
     
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \LoginDetails.email, ascending: true)],
@@ -50,14 +53,62 @@ struct LogInPage: View {
                     VStack{
                         TextField("Email", text: $emailId)
                             .autocorrectionDisabled(true)
+//                            .onChange(of: emailId){
+//                                showEmailError = false
+//                                showPasswordError = false
+//                            }
+                            .onTapGesture {
+                                showEmailError = false
+                                showPasswordError = false
+                            }
                         Divider()
                             .background(.black)
+                        HStack{
+                            if(showEmailError) {
+                                Text("Invalid Email ID.")
+                                    .foregroundStyle(.red)
+                                    .font(.footnote)
+                            }
+                            Spacer()
+                        }
                     }.padding()
                     VStack{
-                        SecureField("Password", text: $password)
-                            .autocorrectionDisabled(true)
+                        HStack{
+                            Group {
+                                if isSecureTextEntry {
+                                    SecureField("Password", text: $password)
+                                } else {
+                                    TextField("Password", text: $password)
+                                }
+                            }
+//                            .onChange(of: password){
+//                                showEmailError = false
+//                                showPasswordError = false
+//                            }
+                            .textContentType(.password)
+                            .onTapGesture {
+                                showPasswordError = false
+                                showEmailError = false
+                            }
+                            
+                            Button(action: {
+                                isSecureTextEntry.toggle()
+                            }) {
+                                Image(systemName: isSecureTextEntry ? "eye" : "eye.slash")
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        
                         Divider()
                             .background(.black)
+                        HStack {
+                            if(showPasswordError) {
+                                Text("Invalid Password.")
+                                    .foregroundStyle(.red)
+                                    .font(.footnote)
+                            }
+                            Spacer()
+                        }
                     }.padding()
                 }
                 .padding()
@@ -69,35 +120,45 @@ struct LogInPage: View {
                 NavigationLink(destination: BooksView()
                     .environment(\.managedObjectContext, viewContext)
                     .environmentObject(checkLogoutAuth), isActive: $isBookViewCalled, label: {
-                    Button(action: {
-                        print("Logging In")
-                        if let emailDetail = coreDataEmail.first(where: { $0.email == emailId }) {
-                            print("email present in CD")
-                            emailInCD = true }
-                        if let passDetail = coreDataPassword.first(where: { $0.password == password }){
-                            print("password present in CD")
-                            passwordInCD = true }
-                        if(emailInCD && passwordInCD) {
-                            isBookViewCalled = true
-                            UserDefaults.standard.set(true, forKey: "isLoggedIn")
-                        } else {
-                            emailId = ""
-                            password = ""
-                        }
-                    }){
-                        Text("Login")
-                            .foregroundStyle(.black)
-                            .font(.subheadline)
-                            .fontWeight(.bold)
-                        Text(Image(systemName: "arrow.right"))
-                            .foregroundStyle(.black)
-                    }.overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.black, lineWidth: 2)
-                            .frame(width: 150, height: 50))
-                    .padding(.bottom, 20)
-                    
-                })
+                        Button(action: {
+                            print("Logging In")
+                            if coreDataEmail.first(where: { $0.email == emailId }) != nil {
+                                print("email present in CD")
+                                emailInCD = true }
+                            if coreDataPassword.first(where: { $0.password == password }) != nil{
+                                print("password present in CD")
+                                passwordInCD = true }
+                            if(emailInCD && passwordInCD) {
+                                isBookViewCalled = true
+                                checkLogoutAuth.isLoggedIn = true
+                                UserDefaults.standard.set(true, forKey: "isLoggedIn")
+                            } else if(!emailInCD && passwordInCD){
+                                emailId = ""
+                                password = ""
+                                showEmailError = true
+                            } else if(emailInCD && !passwordInCD) {
+                                password = ""
+                                showPasswordError = true
+                            } else {
+                                emailId = ""
+                                password = ""
+                                showEmailError = true
+                                showPasswordError = true
+                            }
+                        }){
+                            Text("Login")
+                                .foregroundStyle(.black)
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                            Text(Image(systemName: "arrow.right"))
+                                .foregroundStyle(.black)
+                        }.overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.black, lineWidth: 2)
+                                .frame(width: 150, height: 50))
+                        .padding(.bottom, 20)
+                        
+                    })
             }
         }
         .frame(maxWidth: /*@START_MENU_TOKEN@*/.infinity/*@END_MENU_TOKEN@*/,maxHeight: .infinity)
